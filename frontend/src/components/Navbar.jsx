@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Menu as MenuIcon, X } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, UserButton, SignInButton, SignUpButton } from "@clerk/clerk-react";
@@ -6,9 +6,23 @@ import Logo from './Logo.jsx';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { isSignedIn } = useAuth();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const scrollToSection = (sectionId) => {
     if (location.pathname !== '/') {
@@ -49,14 +63,18 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-black/30 backdrop-blur-md py-4 rounded-full shadow-lg fixed top-4 left-1/2 transform -translate-x-1/2 z-50 transition duration-300 w-[90%] max-w-6xl border border-white/[0.08]">
+    <nav className={`fixed left-1/2 transform -translate-x-1/2 z-50 transition-all duration-500 ease-in-out rounded-full border border-white/[0.1] ${
+      isScrolled 
+        ? "top-6 bg-black/5 backdrop-blur-sm py-2 w-[80%] max-w-4xl shadow-2xl hover:bg-black/80 hover:backdrop-blur-lg hover:py-4 hover:w-[90%] hover:max-w-6xl hover:shadow-[0_0_30px_rgba(0,0,0,0.5)]" 
+        : "top-4 bg-black/20 backdrop-blur-md py-4 w-[90%] max-w-6xl shadow-lg"
+    }`}>
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate("/")}>
             <Logo />
           </div>
 
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-4 lg:space-x-8 whitespace-nowrap overflow-hidden">
             <button onClick={handleFeaturesClick} className="text-white/90 hover:text-[#E36FFF] transition duration-200 text-sm">
               Features
             </button>
