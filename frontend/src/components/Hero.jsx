@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Globe, Shield, Activity, ArrowRight } from 'lucide-react';
+import Globe3DDemo from './Globe3DDemo';
 
 export default function Hero() {
   const [gridItems, setGridItems] = useState(0);
@@ -31,67 +32,46 @@ export default function Hero() {
   );
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen overflow-hidden">
-      {/* Grid Background Removed to show global ripple */}
+    <div className="relative min-h-screen bg-[#0A0F1F] text-white overflow-hidden flex items-center">
+      {/* Grid Background */}
+      <div className="absolute inset-0 z-0">
+        <div className="w-full h-full grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] auto-rows-[40px] opacity-20">
+          {Array.from({ length: gridItems }).map((_, i) => (
+            <div
+              key={i}
+              className="border-[0.5px] border-gray-500/20"
+              style={{ aspectRatio: '1/1' }}
+            />
+          ))}
+        </div>
+      </div>
       
-      {/* Gradient Effects */}
-      <div className="absolute inset-0 pointer-events-none">
-        {/* Main purple glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-700/20 rounded-full blur-[120px]" />
-        
-        {/* Secondary blue glow */}
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-700/20 rounded-full blur-[100px]" />
-        
-        {/* Accent pink glow */}
-        <div className="absolute top-20 left-20 w-[200px] h-[200px] bg-pink-600/10 rounded-full blur-[80px]" />
-      </div>
+      {/* Subtle background glow/overlay */}
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0A0F1F] via-[#0A0F1F]/90 to-transparent z-10" />
 
-      {/* Floating particles effect */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(15)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-white/60 rounded-full"
-            initial={{ 
-              x: Math.random() * 100 + "%", 
-              y: Math.random() * 100 + "%", 
-              opacity: Math.random() * 0.5 + 0.3 
-            }}
-            animate={{ 
-              y: [null, Math.random() * 100 + "%", Math.random() * 100 + "%"],
-              x: [null, Math.random() * 100 + "%", Math.random() * 100 + "%"],
-              opacity: [null, Math.random() * 0.5 + 0.3, Math.random() * 0.5 + 0.3]
-            }}
-            transition={{ 
-              duration: 15 + Math.random() * 20, 
-              repeat: Infinity, 
-              ease: "linear"
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 py-20">
-        <div className="flex flex-col items-center">
+      {/* Content Container */}
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 md:px-16 py-20 flex flex-col md:flex-row items-center justify-between gap-12">
+        
+        {/* LEFT: existing content */}
+        <div className="max-w-xl flex flex-col items-start text-left">
           {/* Spotlight badge */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-md px-4 py-1.5 rounded-full border border-purple-500/30 m-8"
+            className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-md px-4 py-1.5 rounded-full border border-purple-500/30 mb-8"
           >
             <span className="text-sm text-white/90 font-medium">
-              <span className="text-purple-400 font-semibold">New:</span> Blockchain-Powered Monitoring Beta Launch
+              <span className="text-purple-400 font-semibold">New:</span> Blockchain-Powered Monitoring Beta
             </span>
           </motion.div>
           
           {/* Main headline */}
           <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 text-center leading-tight"
+            className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight"
           >
             <span className="relative inline-block">
               <span className="absolute -inset-1 blur-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg"></span>
@@ -107,31 +87,31 @@ export default function Hero() {
               transition={{ duration: 0.8, delay: 0.6 }}
               className="bg-gradient-to-r from-purple-300 to-white text-transparent bg-clip-text"
             >
-              Website Monitoring Platform
+              Website Monitoring
             </motion.span>
           </motion.h1>
           
           {/* Tagline */}
-          <motion.h2 
+          <motion.p 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.8 }}
-            className="text-xl md:text-2xl text-gray-300 mb-8 text-center max-w-3xl"
+            className="text-lg md:text-xl text-gray-300 mb-8 max-w-lg"
           >
             Ensure uptime, performance, and security with a trustless, 
             blockchain-powered monitoring network that can't be compromised.
-          </motion.h2>
+          </motion.p>
           
           {/* Feature badges */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 1 }}
-            className="flex flex-wrap justify-center gap-3 mb-10"
+            className="flex flex-wrap gap-3 mb-10"
           >
-            <FeatureBadge icon={Globe} text="Decentralized Infrastructure" />
-            <FeatureBadge icon={Shield} text="Tamper-Proof Reports" />
-            <FeatureBadge icon={Activity} text="Real-Time Alerts" />
+            <FeatureBadge icon={Globe} text="Decentralized" />
+            <FeatureBadge icon={Shield} text="Tamper-Proof" />
+            <FeatureBadge icon={Activity} text="Real-Time" />
           </motion.div>
           
           {/* CTA button */}
@@ -139,7 +119,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.3 }}
-            className="flex items-center justify-center mb-16"
+            className="flex items-center mb-16"
           >
             <div className="button-glow-wrapper group">
               <Link to="/sign-up">
@@ -151,30 +131,70 @@ export default function Hero() {
               </Link>
             </div>
           </motion.div>
-          
+
           {/* Stats counters */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 1.4 }}
-            className="grid grid-cols-2 md:grid-cols-3 gap-8 md:gap-16"
+            className="grid grid-cols-2 md:grid-cols-3 gap-8 md:gap-12"
           >
             {[
-              { value: "99.99%", label: "Uptime Guarantee" },
-              { value: "1,240+", label: "Monitoring Nodes" },
-              { value: "45s", label: "Avg. Alert Time" }
+              { value: "99.99%", label: "Uptime" },
+              { value: "1,240+", label: "Nodes" },
+              { value: "45s", label: "Alerts" }
             ].map((stat, i) => (
-              <div key={i} className="text-center">
-                <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text mb-1">
+              <div key={i} className="text-left">
+                <div className="text-xl md:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text mb-1">
                   {stat.value}
                 </div>
-                <div className="text-sm text-gray-400">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">
                   {stat.label}
                 </div>
               </div>
             ))}
           </motion.div>
         </div>
+
+        {/* RIGHT: globe */}
+        <div className="relative w-full md:w-1/2 flex items-center justify-center md:-mt-16">
+          {/* Soft glow behind globe - set to pointer-events-none */}
+          <div className="absolute w-[300px] h-[300px] md:w-[450px] md:h-[450px] bg-cyan-500/20 rounded-full blur-[100px] animate-pulse pointer-events-none" />
+          <div className="absolute w-[200px] h-[200px] md:w-[350px] md:h-[350px] bg-blue-600/10 rounded-full blur-[80px] pointer-events-none" />
+          
+          {/* Blur effect behind globe - set to pointer-events-none */}
+          <div className="absolute inset-0 backdrop-blur-[2px] z-0 pointer-events-none" />
+          
+          {/* Globe Container with strict size limits */}
+          <div className="relative z-10 w-full h-[400px] md:h-[700px] max-w-[700px] max-h-[700px] min-w-[300px] min-h-[300px] flex items-center justify-center opacity-90 pointer-events-auto">
+            <Globe3DDemo />
+          </div>
+        </div>
+      </div>
+
+      {/* Floating particles effect */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {[...Array(15)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-0.5 h-0.5 bg-white/40 rounded-full"
+            initial={{ 
+              x: Math.random() * 100 + "%", 
+              y: Math.random() * 100 + "%", 
+              opacity: Math.random() * 0.5 + 0.1 
+            }}
+            animate={{ 
+              y: [null, Math.random() * 100 + "%", Math.random() * 100 + "%"],
+              x: [null, Math.random() * 100 + "%", Math.random() * 100 + "%"],
+              opacity: [null, Math.random() * 0.5 + 0.1, Math.random() * 0.5 + 0.1]
+            }}
+            transition={{ 
+              duration: 20 + Math.random() * 30, 
+              repeat: Infinity, 
+              ease: "linear"
+            }}
+          />
+        ))}
       </div>
     </div>
   );
