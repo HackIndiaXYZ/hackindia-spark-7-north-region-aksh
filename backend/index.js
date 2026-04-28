@@ -62,10 +62,37 @@ app.post("/user", async (req, res) => {
   }
 });
 
+// Update Pushover Key
+app.put("/user/pushover", async (req, res) => {
+  try {
+    const userId = req.header('userId');
+    const { pushoverUserKey } = req.body;
+    const user = await User.findOneAndUpdate(
+      { userId },
+      { pushoverUserKey },
+      { new: true }
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    await logEvent({
+      category: 'USER',
+      eventType: 'USER_SETTINGS_UPDATED',
+      actorId: userId,
+      message: `User updated Pushover settings`,
+    });
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
 // Validator Creation
 app.post("/validator", async (req, res) => {
   try {
-    const { name, email, payoutPublicKey, publicKey, location, ip, password } =
+    const { name, email, payoutPublicKey, publicKey, location, ip, password, latitude, longitude } =
       req.body;
     const publicKeyDB = await Validator.findOne({
       payoutPublicKey: payoutPublicKey,
@@ -96,10 +123,12 @@ app.post("/validator", async (req, res) => {
       publicKey: publicKey,
       location: location,
       ip: ip,
+      latitude: latitude,
+      longitude: longitude,
       payoutPublicKey: payoutPublicKey,
       password: hashedPassword,
     });
-    
+
     await logEvent({
       category: 'VALIDATOR',
       eventType: 'VALIDATOR_SIGNUP',
@@ -142,6 +171,68 @@ app.post("/validator-signin", async (req, res) => {
   }
 });
 
+// ── GET /website/:id/validators ──────────────────────────────────────────────
+// Returns all validators that have ever checked this website, with their
+// latest reported status, location, and coordinates. Used for the live map.
+app.get("/website/:id/validators", async (req, res) => {
+  try {
+    const websiteId = req.params.id;
+
+    // Get the latest tick for each unique validator that checked this website
+    const latestTicks = await WebsiteTick.aggregate([
+      { $match: { websiteId: websiteId } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$validatorId",
+          latestStatus: { $first: "$status" },
+          latency: { $first: "$latency" },
+          lastChecked: { $first: "$createdAt" },
+        },
+      },
+    ]);
+
+    if (!latestTicks.length) {
+      return res.status(200).json([]);
+    }
+
+    // Enrich with validator details (name, lat, lng, location)
+    const validatorIds = latestTicks.map((t) => t._id);
+    const validators = await Validator.find({ _id: { $in: validatorIds } }).select(
+      "name location latitude longitude trustScore"
+    );
+
+    const validatorMap = {};
+    validators.forEach((v) => {
+      validatorMap[v._id.toString()] = v;
+    });
+
+    const result = latestTicks
+      .filter((t) => validatorMap[t._id.toString()])
+      .map((t) => {
+        const v = validatorMap[t._id.toString()];
+        return {
+          validatorId: t._id,
+          name: v.name,
+          location: v.location,
+          latitude: v.latitude,
+          longitude: v.longitude,
+          trustScore: v.trustScore,
+          latestStatus: t.latestStatus, // "Good" or "Bad"
+          latency: t.latency,
+          lastChecked: t.lastChecked,
+        };
+      })
+      // Only include validators with valid coordinates
+      .filter((v) => v.latitude != null && v.longitude != null);
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error fetching validators for website:", error);
+    res.status(500).json({ message: "Failed to fetch validators", error: error.message });
+  }
+});
+
 // Fetch Validator Detail
 app.get("/validator-detail", authenticateValidator, async (req, res) => {
   try {
@@ -159,9 +250,9 @@ app.get("/validator-detail", authenticateValidator, async (req, res) => {
       return res.status(404).json({ message: "Validator not found" });
     }
 
-    const blockchainLogs = await EventLog.find({ 
-      actorId: _id, 
-      eventType: { $in: ['BLOCKCHAIN_VALIDATOR_HOURLY', 'BLOCKCHAIN_SYNC', 'PAYOUT_SUCCESS'] } 
+    const blockchainLogs = await EventLog.find({
+      actorId: _id,
+      eventType: { $in: ['BLOCKCHAIN_VALIDATOR_HOURLY', 'BLOCKCHAIN_SYNC', 'PAYOUT_SUCCESS'] }
     }).sort({ timestamp: -1 }).limit(20);
 
     const averagePayout =
@@ -189,7 +280,7 @@ app.post("/getPayout", authenticateValidator, async (req, res) => {
   console.log("Getting payout to user");
   try {
     const { _id } = req.user;
-    
+
     await logEvent({
       category: 'PAYOUT',
       eventType: 'PAYOUT_INITIATED',
@@ -212,12 +303,12 @@ app.post("/getPayout", authenticateValidator, async (req, res) => {
         actorId: _id.toString(),
         message: 'Payout blocked: Validator is still in Trial Phase',
       });
-      return res.status(403).json({ 
-        message: "Payout blocked", 
-        reason: "You are currently in the Trial Phase. Please complete 500 successful checks and wait 24 hours to be fully admitted." 
+      return res.status(403).json({
+        message: "Payout blocked",
+        reason: "You are currently in the Trial Phase. Please complete 500 successful checks and wait 24 hours to be fully admitted."
       });
     }
-    
+
     if (!payoutPublicKey) {
       return res
         .status(400)
@@ -232,9 +323,9 @@ app.post("/getPayout", authenticateValidator, async (req, res) => {
         message: 'Payout failed: Insufficient rewards',
         metadata: { pendingPayouts }
       });
-      return res.status(400).json({ 
-        message: "Insufficient rewards", 
-        reason: "At least 800,000 lamports (~0.0008 SOL) are required for withdrawal to cover rent-exemption for new accounts." 
+      return res.status(400).json({
+        message: "Insufficient rewards",
+        reason: "At least 800,000 lamports (~0.0008 SOL) are required for withdrawal to cover rent-exemption for new accounts."
       });
     }
 
@@ -268,7 +359,7 @@ app.post("/getPayout", authenticateValidator, async (req, res) => {
     }
     const fromKeypair = Keypair.fromSecretKey(secretKeyBytes);
     const balance = await connection.getBalance(fromKeypair.publicKey);
-    if(balance < 2000000) {
+    if (balance < 2000000) {
       await logEvent({
         category: 'PAYOUT',
         eventType: 'PAYOUT_FAILED',
@@ -277,7 +368,7 @@ app.post("/getPayout", authenticateValidator, async (req, res) => {
         message: 'Payout failed: Admin wallet low balance',
         metadata: { balance }
       });
-      return res.status(400).json({message : "Low balance"})
+      return res.status(400).json({ message: "Low balance" })
     }
     const signature = await sendAndConfirmTransaction(
       connection,
@@ -285,7 +376,7 @@ app.post("/getPayout", authenticateValidator, async (req, res) => {
       [fromKeypair]
     );
     await Validator.findByIdAndUpdate(_id, { pendingPayouts: 0 });
-    
+
     await logEvent({
       category: 'PAYOUT',
       eventType: 'PAYOUT_SUCCESS',
@@ -308,7 +399,7 @@ app.post("/getPayout", authenticateValidator, async (req, res) => {
     });
     return res.status(400).json({
       message: "Error in Payout",
-      reason : "Atleast 0.0008 SOL is required"
+      reason: "Atleast 0.0008 SOL is required"
     });
   }
 });
@@ -344,7 +435,7 @@ app.post("/website", async (req, res) => {
       userId: req.body.userId,
       websiteName: req.body.websiteName,
     });
-    
+
     await logEvent({
       category: 'WEBSITE',
       eventType: 'WEBSITE_REGISTERED',
@@ -389,12 +480,14 @@ app.put("/website-track/:id", async (req, res) => {
 app.get("/website-details/:id", async (req, res) => {
   try {
     let websiteId = req.params.id;
-    // Hardcoding website Id
-    // websiteId = "67da786fa901e50ce8b6a8c5";
-    if (!websiteId) {
+    if (!websiteId || websiteId === 'undefined') {
       return res.status(400).json({ error: "Website ID is required" });
     }
-    const website = await Website.findById({ _id: websiteId });
+    // Validate that the ID is a valid MongoDB ObjectId before querying
+    if (!/^[a-f\d]{24}$/i.test(websiteId)) {
+      return res.status(400).json({ error: "Invalid Website ID format" });
+    }
+    const website = await Website.findById(websiteId);
     if (!website) {
       return res.status(404).json({ error: "Website not found" });
     }
@@ -403,9 +496,9 @@ app.get("/website-details/:id", async (req, res) => {
     );
     const disabled = website.disabled;
     const dateCreated = website.createdAt;
-    const downlog = await EventLog.find({ 
-      targetId: websiteId, 
-      eventType: { $in: ['STATUS_CHANGED_DOWN', 'STATUS_CHANGED_UP'] } 
+    const downlog = await EventLog.find({
+      targetId: websiteId,
+      eventType: { $in: ['STATUS_CHANGED_DOWN', 'STATUS_CHANGED_UP'] }
     }).sort({ timestamp: -1 }).limit(10);
     const blockchainLogs = await EventLog.find({ targetId: websiteId, eventType: 'BLOCKCHAIN_LEDGER' }).sort({ timestamp: -1 }).limit(20);
     const hourlySummaries = await EventLog.find({ targetId: websiteId, eventType: 'BLOCKCHAIN_HOURLY_SUMMARY' }).sort({ timestamp: -1 }).limit(24);
@@ -467,7 +560,7 @@ app.get("/website-details/:id", async (req, res) => {
       const avgLatency =
         recentTicks.length > 0
           ? recentTicks.reduce((sum, tick) => sum + tick.latency, 0) /
-            recentTicks.length
+          recentTicks.length
           : 0;
 
       return {
@@ -495,7 +588,7 @@ app.get("/website-details/:id", async (req, res) => {
 });
 
 // Delete Website
-app.delete("/website/:id",  async (req, res) => {
+app.delete("/website/:id", async (req, res) => {
   try {
     const userId = req.header('userId'); // Get the user ID from Clerk
     const website = await Website.findOneAndDelete({
@@ -516,7 +609,7 @@ app.delete("/website/:id",  async (req, res) => {
   }
 });
 
-app.get("/dashboard-details",  async (req, res) => {
+app.get("/dashboard-details", async (req, res) => {
   try {
     const userId = req.header('userId'); // Assuming authentication middleware sets `req.user`
     // Fetch all websites monitored by the user
@@ -583,7 +676,7 @@ app.get("/dashboard-details",  async (req, res) => {
         const avgLatency =
           recentTicks.length > 0
             ? recentTicks.reduce((sum, tick) => sum + tick.latency, 0) /
-              recentTicks.length
+            recentTicks.length
             : 0;
 
         return {

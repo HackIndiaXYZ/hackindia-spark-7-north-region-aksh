@@ -5,6 +5,7 @@ const websiteStatusEnum = ["Good", "Bad"];
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   userId: { type: String, required: true, unique: true },
+  pushoverUserKey: { type: String },
 });
 
 const websiteSchema = new mongoose.Schema({
@@ -13,7 +14,7 @@ const websiteSchema = new mongoose.Schema({
   userId: { type: String, required: true, ref: "User" },
   createdAt: { type: Date, required: true, default: Date.now },
   disabled: { type: Boolean, default: false },
-  lastEmailSent : Date
+  lastEmailSent: Date
 });
 
 const validatorSchema = new mongoose.Schema({
@@ -22,6 +23,8 @@ const validatorSchema = new mongoose.Schema({
   publicKey: { type: String, required: true },
   location: { type: String, required: true },
   ip: { type: String, required: true },
+  latitude: { type: Number },
+  longitude: { type: Number },
   pendingPayouts: { type: Number, default: 0 },
   payoutPublicKey: { type: String, required: true },
   password: { type: String, required: true },
