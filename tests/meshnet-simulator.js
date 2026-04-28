@@ -17,14 +17,14 @@ const HUB_URL = "ws://127.0.0.1:8081";
 const NUM_VALIDATORS = 15;
 
 const REGIONS = [
-    "Delhi, India",
-    "London, UK",
-    "New York, USA",
-    "Tokyo, Japan",
-    "Singapore, SG",
-    "Sydney, Australia",
-    "Berlin, Germany",
-    "Paris, France"
+    { name: "Delhi, India", lat: 28.6139, lng: 77.2090 },
+    { name: "London, UK", lat: 51.5074, lng: -0.1278 },
+    { name: "New York, USA", lat: 40.7128, lng: -74.0060 },
+    { name: "Tokyo, Japan", lat: 35.6762, lng: 139.6503 },
+    { name: "Singapore, SG", lat: 1.3521, lng: 103.8198 },
+    { name: "Sydney, Australia", lat: -33.8688, lng: 151.2093 },
+    { name: "Berlin, Germany", lat: 52.5200, lng: 13.4050 },
+    { name: "Paris, France", lat: 48.8566, lng: 2.3522 }
 ];
 
 // Re-defining schema to avoid complex path imports
@@ -34,6 +34,8 @@ const validatorSchema = new mongoose.Schema({
     publicKey: { type: String, required: true },
     location: { type: String, required: true },
     ip: { type: String, required: true },
+    latitude: { type: Number },
+    longitude: { type: Number },
     pendingPayouts: { type: Number, default: 0 },
     payoutPublicKey: { type: String, required: true },
     password: { type: String, required: true },
@@ -66,8 +68,10 @@ async function createMockValidator(index, region) {
         name: `MeshNet Node ${index}`,
         email,
         publicKey: publicKeyBase64,
-        location: region,
+        location: region.name,
         ip: `192.168.100.${index}`,
+        latitude: region.lat,
+        longitude: region.lng,
         payoutPublicKey: "mock_solana_address",
         password: hashedPassword,
         isAdmitted: isHighTrust, 
@@ -106,7 +110,9 @@ function connectNode(nodeInfo) {
                     ip: nodeInfo.validatorDb.ip,
                     publicKey: publicKeyBase64,
                     signedMessage,
-                    location: nodeInfo.region
+                    location: nodeInfo.region.name,
+                    latitude: nodeInfo.region.lat,
+                    longitude: nodeInfo.region.lng
                 }
             }));
         });
@@ -134,7 +140,9 @@ function connectNode(nodeInfo) {
                         latency,
                         validatorId: nodeInfo.validatorDb._id.toString(),
                         signedMessage: signature,
-                        location: nodeInfo.region
+                        location: nodeInfo.region.name,
+                        latitude: nodeInfo.region.lat,
+                        longitude: nodeInfo.region.lng
                     }
                 }));
             }
