@@ -32,7 +32,7 @@ export default function Hero() {
   );
 
   return (
-    <div className="relative min-h-screen bg-[#0A0F1F] text-white overflow-hidden flex items-center">
+    <div className="relative min-h-screen bg-[#0A0F1F] text-white overflow-hidden flex items-center pt-8 md:pt-27">
       {/* Grid Background */}
       <div className="absolute inset-0 z-0">
         <div className="w-full h-full grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] auto-rows-[40px] opacity-20">
@@ -117,9 +117,9 @@ export default function Hero() {
           {/* CTA button */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 1.3 }}
-            className="flex items-center mb-16"
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.5, delay: 1.3 }}
+  className="flex items-center mb-16 -mt-6"
           >
             <div className="button-glow-wrapper group">
               <Link to="/sign-up">
