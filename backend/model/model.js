@@ -22,8 +22,6 @@ const validatorSchema = new mongoose.Schema({
   publicKey: { type: String, required: true },
   location: { type: String, required: true },
   ip: { type: String, required: true },
-  latitude: { type: Number },
-  longitude: { type: Number },
   pendingPayouts: { type: Number, default: 0 },
   payoutPublicKey: { type: String, required: true },
   password: { type: String, required: true },

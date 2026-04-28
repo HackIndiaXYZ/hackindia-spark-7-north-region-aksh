@@ -1,11 +1,7 @@
 import mongoose from "mongoose";
 
 import dotenv from "dotenv";
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: '../.env' });
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/techexpo";
 console.log(`[DB] Connecting to: ${MONGO_URI}`);

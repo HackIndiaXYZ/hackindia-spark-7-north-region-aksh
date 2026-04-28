@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { SignIn, SignUp, useClerk, useSession } from "@clerk/clerk-react";
-import { BackgroundRippleEffect } from "@/components/ui/background-ripple-effect";
 import Navbar from './components/Navbar.jsx';
 import Footer from './components/Footer.jsx';
 import LandingPage from './pages/LandingPage.jsx';
@@ -95,28 +94,19 @@ const App = () => {
   }, [location]);
 
   return (
-    <div className="min-h-screen flex flex-col relative bg-[#0B0B1F] overflow-x-hidden">
-      {/* Background Ripple Effect */}
-      <div className="fixed inset-0 z-0 opacity-40 pointer-events-auto">
-        <BackgroundRippleEffect rows={40} cols={60} />
-      </div>
-
+    <div className="min-h-screen flex flex-col relative bg-[#0B0B1F] overflow-hidden">
       {/* Gradient overlay */}
-      <div className="fixed inset-0 bg-gradient-to-br from-purple-600/20 via-purple-900/10 to-[#0B0B1F] pointer-events-none z-[1]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-purple-900/10 to-[#0B0B1F] pointer-events-none" />
 
       {/* Glowing orbs */}
-      <div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-purple-500/30 rounded-full blur-[140px] pointer-events-none z-[1]" />
+      <div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-purple-500/30 rounded-full blur-[140px] pointer-events-none" />
 
       {/* Scroll restoration */}
       <ScrollToTop />
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col flex-1 pointer-events-none">
-        <div className="pointer-events-auto w-full">
-          {!hideNavbarFooter && <Navbar />}
-        </div>
-        <div className="flex-1 pointer-events-auto w-full">
-          <Routes>
+      {!hideNavbarFooter && <Navbar />}
+      <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/validator" element={<Validator />} />
@@ -212,13 +202,9 @@ const App = () => {
           }
         />
 
-          <Route path="/demo-monitor" element={<MonitorPage />} />
-        </Routes>
-        </div>
-        <div className="pointer-events-auto w-full">
-          {!hideNavbarFooter && <Footer />}
-        </div>
-      </div>
+        <Route path="/demo-monitor" element={<MonitorPage />} />
+      </Routes>
+      {!hideNavbarFooter && <Footer />}
     </div>
   );
 };

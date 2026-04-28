@@ -50,10 +50,6 @@ export default {
           "0%, 100%": { opacity: 1 },
           "50%": { opacity: 0.5 },
         },
-        "cell-ripple": {
-          "0%": { opacity: 1, transform: "scale(1)" },
-          "100%": { opacity: 0, transform: "scale(0.5)" },
-        },
       },
       animation: {
         'scroll-left': 'scroll-left 20s linear infinite',
@@ -73,7 +69,6 @@ export default {
         "float-fast": "float 4s ease-in-out infinite",
         "slide-up": "slideUp 0.5s ease-out forwards",
         "fade-in": "fadeIn 0.5s ease-out forwards",
-        "cell-ripple": "cell-ripple var(--duration) var(--delay) ease-out forwards",
       },
       colors: {
         success: "hsl(var(--success))",
