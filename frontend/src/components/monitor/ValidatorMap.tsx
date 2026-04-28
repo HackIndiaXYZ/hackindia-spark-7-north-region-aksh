@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
+import L from "leaflet";
 import {
   MapContainer,
   TileLayer,
-  CircleMarker,
+  Marker,
   Popup,
   useMap,
-  ZoomControl,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -33,8 +33,8 @@ interface ValidatorMapProps {
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
 const STATUS = {
-  Good: { color: "#10b981", glow: "rgba(16,185,129,0.35)", label: "UP", bg: "rgba(16,185,129,0.12)", text: "#34d399" },
-  Bad:  { color: "#f43f5e", glow: "rgba(244,63,94,0.35)",  label: "DOWN", bg: "rgba(244,63,94,0.12)", text: "#fb7185" },
+  Good: { color: "#10b981", glow: "rgba(16,185,129,0.35)", label: "UP",   bg: "rgba(16,185,129,0.12)", text: "#34d399" },
+  Bad:  { color: "#f43f5e", glow: "rgba(244,63,94,0.35)",  label: "DOWN", bg: "rgba(244,63,94,0.12)",  text: "#fb7185" },
   _:    { color: "#f59e0b", glow: "rgba(245,158,11,0.35)", label: "WARN", bg: "rgba(245,158,11,0.12)", text: "#fbbf24" },
 };
 
@@ -45,7 +45,7 @@ const getStatus = (s: string) => STATUS[s as keyof typeof STATUS] ?? STATUS._;
 const FitBounds = ({ validators }: { validators: ValidatorData[] }) => {
   const map = useMap();
   useEffect(() => {
-    const valid = validators.filter((v) => v.latitude != null && v.longitude != null);
+    const valid = validators.filter((v) => v.latitude != null && v.longitude != null && !(v.latitude === 0 && v.longitude === 0));
     if (valid.length === 0) return;
     if (valid.length === 1) { map.setView([valid[0].latitude, valid[0].longitude], 5); return; }
     const lats = valid.map((v) => v.latitude);
@@ -56,6 +56,179 @@ const FitBounds = ({ validators }: { validators: ValidatorData[] }) => {
     );
   }, [validators.length]);
   return null;
+};
+
+// ─── Zoom-to-dot-size mapping ─────────────────────────────────────────────────
+// Dots are tiny at full zoom-out and grow smoothly as the user zooms in
+const dotRadiusForZoom = (zoom: number): number => {
+  if (zoom <= 2)  return 2;
+  if (zoom <= 4)  return 3;
+  if (zoom <= 6)  return 5;
+  if (zoom <= 8)  return 7;
+  if (zoom <= 10) return 10;
+  if (zoom <= 12) return 14;
+  return 18;
+};
+
+// ─── ZoomAwareMarker ──────────────────────────────────────────────────────────
+// Each marker manages its OWN zoom tracking via useMap(), so it always renders
+// at the correct size and updates instantly via setIcon() on the Leaflet element.
+interface ZoomAwareMarkerProps {
+  validator: ValidatorData;
+  isSelected: boolean;
+  onSelect: () => void;
+}
+
+const ZoomAwareMarker: React.FC<ZoomAwareMarkerProps> = ({ validator, isSelected, onSelect }) => {
+  const map = useMap();
+  // Initialize from the REAL current map zoom — not a hardcoded default
+  const [zoom, setZoom] = useState<number>(() => map.getZoom());
+  const markerRef = useRef<L.Marker | null>(null);
+
+  // Listen to 'zoom' (fires during animation) for smooth scaling
+  useEffect(() => {
+    const onZoom = () => setZoom(map.getZoom());
+    map.on("zoom", onZoom);
+    return () => { map.off("zoom", onZoom); };
+  }, [map]);
+
+  // Rebuild and apply the icon whenever zoom or selection changes
+  useEffect(() => {
+    if (!markerRef.current) return;
+    const s = getStatus(validator.latestStatus);
+    const dotR = dotRadiusForZoom(zoom);
+    const icon = buildDivIcon(s.color, dotR, isSelected);
+    markerRef.current.setIcon(icon);
+  }, [zoom, isSelected, validator.latestStatus]);
+
+  const s = getStatus(validator.latestStatus);
+  const dotR = dotRadiusForZoom(zoom);
+  const icon = buildDivIcon(s.color, dotR, isSelected);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[validator.latitude, validator.longitude]}
+      icon={icon}
+      eventHandlers={{ click: onSelect }}
+    >
+      <Popup className="validator-popup" closeButton={false}>
+        <div style={{
+          background: "rgba(10,15,30,0.97)",
+          border: `1px solid ${s.color}44`,
+          borderRadius: 12,
+          padding: "14px 16px",
+          minWidth: 200,
+          boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px ${s.color}22`,
+          fontFamily: "Inter, sans-serif",
+        }}>
+          {/* Name + status */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "#f1f5f9" }}>{validator.name}</div>
+            <div style={{
+              padding: "2px 8px", borderRadius: 20,
+              background: s.bg, color: s.text,
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+            }}>
+              {s.label}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: "rgba(255,255,255,0.05)", marginBottom: 10 }} />
+
+          {/* Stats grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
+            {[
+              { icon: "📍", label: "Location", val: validator.location },
+              { icon: "⚡", label: "Latency",  val: `${validator.latency}ms` },
+              { icon: "🛡️", label: "Trust",    val: `${validator.trustScore}/100` },
+              { icon: "🕒", label: "Checked",  val: new Date(validator.lastChecked).toLocaleTimeString() },
+            ].map(({ icon, label, val }) => (
+              <div key={label}>
+                <div style={{ fontSize: 10, color: "#475569", marginBottom: 2 }}>{icon} {label}</div>
+                <div style={{ fontSize: 12, color: "#cbd5e1", fontWeight: 500 }}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Trust bar */}
+          <div style={{ marginTop: 12 }}>
+            <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
+              <div style={{
+                height: "100%", borderRadius: 2,
+                width: `${validator.trustScore}%`,
+                background: `linear-gradient(90deg, ${s.color}88, ${s.color})`,
+                transition: "width 0.6s ease",
+              }} />
+            </div>
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+};
+
+// ─── Build a glowy DivIcon for a validator marker ─────────────────────────────
+const buildDivIcon = (
+  color: string,
+  dotR: number,
+  isSelected: boolean
+): L.DivIcon => {
+  // Ring hugs the dot: just 1.6× dot radius so there's no gap
+  const ringR = Math.round(dotR * 1.6);
+  // Canvas must fit the ring + enough room for the glow shadow to bleed
+  const bleed = Math.round(dotR * 2.5); // extra space around ring for box-shadow
+  const total = ringR * 2 + bleed * 2;
+  const center = total / 2;
+
+  // selected markers get a slightly bigger ring and bolder dot
+  const finalDot  = isSelected ? Math.round(dotR * 1.4) : dotR;
+  const finalRing = isSelected ? Math.round(ringR * 1.25) : ringR;
+
+  const html = `
+    <div style="
+      width: ${total}px;
+      height: ${total}px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <!-- twinkling glow ring — sits just outside the dot -->
+      <div class="vmap-ring" style="
+        position: absolute;
+        width: ${finalRing * 2}px;
+        height: ${finalRing * 2}px;
+        border-radius: 50%;
+        border: 1.5px solid ${color}bb;
+        box-shadow: 0 0 ${Math.round(dotR * 3)}px ${color}88,
+                    0 0 ${Math.round(dotR * 6)}px ${color}33;
+        animation: vmap-twinkle 2s ease-in-out infinite;
+        animation-delay: ${Math.random().toFixed(2)}s;
+      "></div>
+      <!-- inner solid dot -->
+      <div style="
+        width: ${finalDot * 2}px;
+        height: ${finalDot * 2}px;
+        border-radius: 50%;
+        background: ${color};
+        box-shadow: 0 0 ${Math.round(finalDot * 1.5)}px ${color}dd,
+                    0 0 ${Math.round(finalDot * 3)}px ${color}66;
+        position: relative;
+        z-index: 2;
+        flex-shrink: 0;
+      "></div>
+    </div>
+  `;
+
+  return L.divIcon({
+    html,
+    className: "", // no leaflet default styles
+    iconSize:   [total, total],
+    iconAnchor: [center, center],
+    popupAnchor:[0, -(center + 4)],
+  });
 };
 
 // ─── Custom Zoom Control ──────────────────────────────────────────────────────
@@ -213,16 +386,16 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
     return () => { wsRef.current?.close(); };
   }, [websiteId]);
 
-  const upCount   = validators.filter((v) => v.latestStatus === "Good").length;
-  const downCount = validators.filter((v) => v.latestStatus === "Bad").length;
-  const warnCount = validators.filter((v) => v.latestStatus !== "Good" && v.latestStatus !== "Bad").length;
+  const upCount    = validators.filter((v) => v.latestStatus === "Good").length;
+  const downCount  = validators.filter((v) => v.latestStatus === "Bad").length;
+  const warnCount  = validators.filter((v) => v.latestStatus !== "Good" && v.latestStatus !== "Bad").length;
   const avgLatency = validators.length
     ? Math.round(validators.reduce((a, v) => a + (v.latency || 0), 0) / validators.length)
     : 0;
 
   return (
     <>
-      {/* Inject custom Leaflet popup styles */}
+      {/* Inject custom Leaflet popup + animation styles */}
       <style>{`
         .validator-popup .leaflet-popup-content-wrapper {
           background: transparent !important;
@@ -242,12 +415,22 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
         .leaflet-control-attribution {
           display: none !important;
         }
-        .pulse-bad {
-          animation: pulse-red 1.6s ease-in-out infinite;
+        /* Twinkling / glowing ring animation */
+        @keyframes vmap-twinkle {
+          0%   { transform: scale(0.85); opacity: 0.55; }
+          40%  { transform: scale(1.15); opacity: 1;    }
+          70%  { transform: scale(1.00); opacity: 0.75; }
+          100% { transform: scale(0.85); opacity: 0.55; }
+        }
+        .vmap-ring {
+          pointer-events: none;
         }
         @keyframes pulse-red {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
 
@@ -293,7 +476,7 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
           {/* Stats row */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {[
-              { count: upCount,   color: "#10b981", bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.2)",  label: "UP" },
+              { count: upCount,   color: "#10b981", bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.2)",  label: "UP"   },
               { count: downCount, color: "#f43f5e", bg: "rgba(244,63,94,0.1)",   border: "rgba(244,63,94,0.2)",   label: "DOWN" },
               { count: warnCount, color: "#f59e0b", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.2)",  label: "WARN" },
             ].map(({ count, color, bg, border, label }) => (
@@ -351,7 +534,6 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
               borderTopColor: "#6366f1",
               animation: "spin 0.8s linear infinite",
             }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             <p style={{ color: "#475569", fontSize: 13, margin: 0 }}>Fetching validator locations…</p>
           </div>
         ) : validators.length === 0 ? (
@@ -368,11 +550,14 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
             <MapContainer
               center={[20, 0]}
               zoom={2}
+              minZoom={2}
+              maxBounds={[[-90, -180], [90, 180]]}
+              maxBoundsViscosity={1.0}
               zoomControl={false}
-              scrollWheelZoom={false}
-              touchZoom={false}
-              doubleClickZoom={false}
-              keyboard={false}
+              scrollWheelZoom={true}
+              touchZoom={true}
+              doubleClickZoom={true}
+              keyboard={true}
               style={{ height: "100%", width: "100%", background: "#060d1a" }}
               className="z-0"
               attributionControl={false}
@@ -382,7 +567,7 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
                 url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
                 subdomains="abcd"
               />
-              {/* English label overlay using CartoDB's en-language tiles */}
+              {/* English label overlay */}
               <TileLayer
                 url="https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_only_labels/{z}/{x}/{y}.png"
                 subdomains="abcd"
@@ -390,84 +575,40 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
               />
               <FitBounds validators={validators} />
               <CustomZoomControl />
+              {/* Group validators by coordinate and render only the worst status to prevent color blending */}
+              {(() => {
+                const uniqueLocs: Record<string, ValidatorData> = {};
+                validators.forEach((v) => {
+                  // Skip invalid or unmapped validators located at 0, 0 (Null Island in the sea)
+                  if (v.latitude === 0 && v.longitude === 0) return;
 
-              {validators.map((validator) => {
-                const s = getStatus(validator.latestStatus);
-                const isSelected = selectedValidator === validator.validatorId;
-                return (
-                  <CircleMarker
+                  const key = `${v.latitude},${v.longitude}`;
+                  const existing = uniqueLocs[key];
+                  if (!existing) {
+                    uniqueLocs[key] = v;
+                  } else {
+                    const getPri = (s: string) => {
+                      if (s === "Bad") return 3;
+                      if (s === "Good") return 1;
+                      return 2;
+                    };
+                    if (getPri(v.latestStatus) > getPri(existing.latestStatus)) {
+                      uniqueLocs[key] = v;
+                    }
+                  }
+                });
+
+                return Object.values(uniqueLocs).map((validator) => (
+                  <ZoomAwareMarker
                     key={validator.validatorId}
-                    center={[validator.latitude, validator.longitude]}
-                    radius={isSelected ? 14 : 9}
-                    pathOptions={{
-                      color: s.color,
-                      fillColor: s.color,
-                      fillOpacity: 0.9,
-                      weight: isSelected ? 3 : 2,
-                      opacity: 1,
-                    }}
-                    eventHandlers={{
-                      click: () => setSelectedValidator(
-                        selectedValidator === validator.validatorId ? null : validator.validatorId
-                      ),
-                    }}
-                  >
-                    <Popup className="validator-popup" closeButton={false}>
-                      <div style={{
-                        background: "rgba(10,15,30,0.97)",
-                        border: `1px solid ${s.color}44`,
-                        borderRadius: 12,
-                        padding: "14px 16px",
-                        minWidth: 200,
-                        boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px ${s.color}22`,
-                        fontFamily: "Inter, sans-serif",
-                      }}>
-                        {/* Name + status */}
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: "#f1f5f9" }}>{validator.name}</div>
-                          <div style={{
-                            padding: "2px 8px", borderRadius: 20,
-                            background: s.bg, color: s.text,
-                            fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                          }}>
-                            {s.label}
-                          </div>
-                        </div>
-
-                        {/* Divider */}
-                        <div style={{ height: 1, background: "rgba(255,255,255,0.05)", marginBottom: 10 }} />
-
-                        {/* Stats grid */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
-                          {[
-                            { icon: "📍", label: "Location", val: validator.location },
-                            { icon: "⚡", label: "Latency",  val: `${validator.latency}ms` },
-                            { icon: "🛡️", label: "Trust",    val: `${validator.trustScore}/100` },
-                            { icon: "🕒", label: "Checked",  val: new Date(validator.lastChecked).toLocaleTimeString() },
-                          ].map(({ icon, label, val }) => (
-                            <div key={label}>
-                              <div style={{ fontSize: 10, color: "#475569", marginBottom: 2 }}>{icon} {label}</div>
-                              <div style={{ fontSize: 12, color: "#cbd5e1", fontWeight: 500 }}>{val}</div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Trust bar */}
-                        <div style={{ marginTop: 12 }}>
-                          <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
-                            <div style={{
-                              height: "100%", borderRadius: 2,
-                              width: `${validator.trustScore}%`,
-                              background: `linear-gradient(90deg, ${s.color}88, ${s.color})`,
-                              transition: "width 0.6s ease",
-                            }} />
-                          </div>
-                        </div>
-                      </div>
-                    </Popup>
-                  </CircleMarker>
-                );
-              })}
+                    validator={validator}
+                    isSelected={selectedValidator === validator.validatorId}
+                    onSelect={() => setSelectedValidator(
+                      selectedValidator === validator.validatorId ? null : validator.validatorId
+                    )}
+                  />
+                ));
+              })()}
             </MapContainer>
 
             {/* ── Legend overlay ── */}
@@ -549,7 +690,7 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
           background: "rgba(10,15,30,0.3)",
         }}>
           <span style={{ fontSize: 11, color: "#334155" }}>
-            Scroll to zoom · Click markers for details
+            Scroll / pinch to zoom · Click markers for details
           </span>
           <span style={{ fontSize: 11, color: "#334155" }}>
             © CartoDB
@@ -559,5 +700,4 @@ const ValidatorMap: React.FC<ValidatorMapProps> = ({
     </>
   );
 };
-
 export default ValidatorMap;
