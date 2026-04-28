@@ -1,3 +1,6 @@
+# hackindia-spark-7-north-region-aksh
+Hackathon team repository for AKSH - [hackindia-team:hackindia-spark-7-north-region:aksh]
+
 # 🌐 dPIN Website Monitoring System 
 
 A **decentralized website monitoring system** leveraging **dPIN (Decentralized Public Infrastructure Network)** to ensure **trustless uptime verification, real-time alerts, and transparency** without relying on centralized authorities.  
