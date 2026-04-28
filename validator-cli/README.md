@@ -1,124 +1,57 @@
-# Validator CLI
+# 🛡️ WatchTower Validator CLI
 
-A decentralized uptime validator CLI for monitoring website availability.
+Welcome to the **WatchTower Validator CLI**! This is the official command-line interface for running a decentralized monitoring node on the WatchTower dPIN network.
 
-## Requirements
+By running this CLI, you join a global network of independent nodes that monitor website uptimes. In exchange for providing your network bandwidth and cryptographic proofs, you earn **Solana (SOL)** rewards.
 
-- Node.js 14 or higher
-- npm 6 or higher
-- Connection to a validator hub server
+## 📦 Installation
 
-## Installation
-
-Install globally with npm:
+To install the CLI globally on your machine, run:
 
 ```bash
-npm install -g validator-cli
+npm install -g @aksh/validator-cli
 ```
 
-Or for local development:
+*(Note: If you are running from source, use `npm install` and run `node bin/index.js` instead).*
+
+## 🚀 Getting Started
+
+### 1. Register a Node
+Before you can start monitoring, you must register your node with the WatchTower Hub.
 
 ```bash
-# Clone or download the repository
-# Then navigate to the project directory
-cd validator-cli
-
-# Install dependencies
-npm install
-
-# Create a global symlink to use the CLI from anywhere
-npm link
+validator-cli register
 ```
+You will be prompted for:
+*   Your Name & Email
+*   A secure password
+*   Your **Solana Public Key** (where your rewards will be sent)
+*   The Hub WebSocket URL
 
-## Getting Started
-
-Here's how to get up and running with the Validator CLI:
-
-1. **Make sure you have completed the installation steps above**
-
-2. **Register as a validator (CLI-only)**
-
-   ```bash
-   validator-cli register
-   ```
-
-3. **Start the validator client**
-   ```bash
-   validator-cli start
-   ```
-
-## Usage
-
-### Getting Help
-
-You can display help information using:
+### 2. Start the Validator
+Once registered, a cryptographic keypair is saved locally. You can start monitoring immediately:
 
 ```bash
-validator-cli -help
-# or
-validator-cli --help
+validator-cli start
 ```
+The node will connect to the Hub, receive monitoring assignments, and automatically submit cryptographic attestations. Keep this process running 24/7 to maximize your rewards!
 
-### Available Commands
-
-```bash
-validator-cli [command] [options]
-```
-
-### Generate Validator Keys
-
-```bash
-validator-cli generate-keys
-```
-
-This will generate a keypair for your validator in `~/.watchtower-validator`.
-
-### Start the Validator
-
-```bash
-validator-cli start /path/to/privateKey.txt
-```
-
-Start the validator using the default private key at `~/.watchtower-validator/privateKey.txt`.
-
-### View Validator Info
-
-```bash
-validator-cli info
-```
-
-### View Rewards
+### 3. Check Your Rewards
+To view your pending Solana payouts:
 
 ```bash
 validator-cli rewards
 ```
 
-Check your accumulated rewards from validation work.
+## 🛠️ Additional Commands
 
-### Ping a URL
+*   `validator-cli info` - View your node's connection status, ID, and public key.
+*   `validator-cli ping <url>` - Manually test the latency to a specific website.
+*   `validator-cli debug-ping <url>` - Perform a deep latency analysis (DNS + Network Ping).
+*   `validator-cli generate-keys` - Manually generate a new cryptographic keypair.
 
-```bash
-validator-cli ping https://example.com
-```
+## 🔒 Security
+Your private keys are generated locally and **never** transmitted to the WatchTower servers. All uptime reports are signed locally on your machine using your private key to ensure non-repudiation.
 
-Manually ping a URL to check its status and response time.
-
-## Configuration
-
-The validator uses a configuration file located at `~/.watchtower-validator/config.json`. Example:
-
-```json
-{
-  "hubServer": "ws://localhost:8081"
-}
-```
-
-## Troubleshooting
-
-### WebSocket Connection Issues
-
-If you encounter WebSocket connection errors, ensure that the hub server is running and accessible. Check the `hubServer` URL in your `~/.watchtower-validator/config.json` file and make sure it is correct.
-
-## License
-
-ISC
+## 📄 License
+This project is licensed under the MIT License.
