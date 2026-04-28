@@ -9,7 +9,7 @@ By running this CLI, you join a global network of independent nodes that monitor
 To install the CLI globally on your machine, run:
 
 ```bash
-npm install -g @aksh/validator-cli
+npm install -g aksh-/validator-cli
 ```
 
 *(Note: If you are running from source, use `npm install` and run `node bin/index.js` instead).*
